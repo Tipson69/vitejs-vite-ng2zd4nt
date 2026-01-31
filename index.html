@@ -28,7 +28,10 @@
       text-align: center;
       transition: background 0.3s, color 0.3s;
     }
-    h1 { font-size: 1.9rem; margin: 20px 0 30px; }
+    h1 {
+      font-size: 1.9rem;
+      margin: 20px 0 30px;
+    }
     .buttons {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -58,7 +61,7 @@
     .sleepy  { background: #673ab7; }
     h2 { font-size: 1.5rem; margin: 30px 0 15px; }
     .stats p { font-size: 1.25rem; margin: 10px 0; }
-    .reset-btn {
+    .share-btn, .reset-btn {
       margin: 20px 10px;
       padding: 14px 40px;
       font-size: 1.2rem;
@@ -66,9 +69,10 @@
       border-radius: 12px;
       cursor: pointer;
       color: white;
-      background: #607d8b;
     }
-    .reset-btn:hover { opacity: 0.9; }
+    .share-btn { background: #3b82f6; }
+    .reset-btn { background: #607d8b; }
+    .share-btn:hover, .reset-btn:hover { opacity: 0.9; }
   </style>
 </head>
 <body>
@@ -96,9 +100,11 @@
     <p>😴 Сонный:    <span id="sleepy">0</span></p>
   </div>
 
+  <button class="share-btn" onclick="shareStats()">Поделиться статистикой</button>
   <button class="reset-btn" onclick="resetStats()">Сбросить статистику</button>
 
   <script>
+    // Загрузка статистики из localStorage
     let moods = JSON.parse(localStorage.getItem('moodStats')) || {
       happy: 0, good: 0, neutral: 0, tired: 0, sad: 0, angry: 0, sleepy: 0
     };
@@ -115,7 +121,8 @@
 
     function updateDisplay() {
       Object.keys(moods).forEach(key => {
-        document.getElementById(key).textContent = moods[key];
+        const el = document.getElementById(key);
+        if (el) el.textContent = moods[key];
       });
     }
 
@@ -141,6 +148,28 @@
       }
     }
 
+    function shareStats() {
+      if (!window.Telegram?.WebApp) {
+        alert("Поделиться можно только внутри Telegram");
+        return;
+      }
+
+      let text = "Моё настроение сегодня:\n";
+      Object.keys(moods).forEach(key => {
+        if (moods[key] > 0) {
+          const emoji = {happy:"😄", good:"😊", neutral:"😐", tired:"😕", sad:"😔", angry:"😠", sleepy:"😴"}[key];
+          text += `${emoji} ${key.charAt(0).toUpperCase() + key.slice(1)}: ${moods[key]}\n`;
+        }
+      });
+      if (text === "Моё настроение сегодня:\n") text += "Пока ничего не записано 😅";
+
+      const shareText = encodeURIComponent(text);
+      const shareUrl = encodeURIComponent(window.location.href);
+
+      // Надёжный способ поделиться через Telegram-ссылку
+      Telegram.WebApp.openTelegramLink(`https://t.me/share/url?url=${shareUrl}&text=${shareText}`);
+    }
+
     // Инициализация
     updateDisplay();
 
@@ -149,33 +178,15 @@
       tg.ready();
       tg.expand();
 
-      // Адаптация под тему
+      // Адаптация под тему Telegram
       const theme = tg.themeParams;
       document.documentElement.style.setProperty('--bg', theme.bg_color || '#f0f4f8');
       document.documentElement.style.setProperty('--text', theme.text_color || '#333');
       document.documentElement.style.setProperty('--card', theme.secondary_bg_color || 'white');
 
+      // Цвет хедера и фона
       tg.setHeaderColor('bg_color');
       tg.setBackgroundColor(theme.bg_color);
-
-      // Главная кнопка "Поделиться" внизу экрана
-      tg.MainButton.setText("Поделиться статистикой");
-      tg.MainButton.setParams({ color: '#3b82f6', text_color: '#ffffff' });
-      tg.MainButton.show();
-
-      tg.MainButton.onClick(() => {
-        let text = "Моё настроение сегодня:\n";
-        Object.keys(moods).forEach(key => {
-          if (moods[key] > 0) {
-            const emoji = {happy:"😄", good:"😊", neutral:"😐", tired:"😕", sad:"😔", angry:"😠", sleepy:"😴"}[key];
-            text += `${emoji} ${key.charAt(0).toUpperCase() + key.slice(1)}: ${moods[key]}\n`;
-          }
-        });
-        if (text === "Моё настроение сегодня:\n") text += "Пока ничего не записано 😅";
-
-        tg.shareUrl(window.location.href, text);
-        // Альтернатива: tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(text)}`);
-      });
     }
   </script>
 </body>
